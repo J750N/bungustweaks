@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# PyInstaller build output (don't commit built binaries - build from source instead)
+build/
+dist/
+*.spec
+
+# Inno Setup installer output
+Output/
+
+# App runtime data
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Bundled vendor tools (user-provided, not ours to commit - see tools/README.md)
+tools/**/*.exe
+tools/**/*.dll
+tools/**/*.sys
+tools/**/*.cat
+!tools/**/.gitkeep
