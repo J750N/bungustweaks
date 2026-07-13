@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import threading
-from pages.widgets import Card, SectionHeader, HistoryGraph, ACCENT, ACCENT2
+from pages.widgets import Card, SectionHeader, HistoryGraph, ACCENT, ACCENT2, bind_responsive_wrap
 from core import system_info, state, history, updates
 from data.tweaks_data import TWEAKS
 from data.services_data import SERVICES
@@ -15,7 +15,7 @@ class HomePage(ctk.CTkFrame):
         self._loop_running = False
 
     def _build(self):
-        pad = ctk.CTkFrame(self, fg_color="transparent")
+        pad = ctk.CTkScrollableFrame(self, fg_color="transparent")
         pad.pack(fill="both", expand=True, padx=30, pady=24)
 
         SectionHeader(pad, "Home", "Live temps, usage, and quick actions").pack(
@@ -187,11 +187,13 @@ class HomePage(ctk.CTkFrame):
 
         if result is None:
             self.wn_version_label.configure(text="")
-            ctk.CTkLabel(
+            offline_label = ctk.CTkLabel(
                 self.wn_body, text="Couldn't reach GitHub to check for release notes "
                                     "(no internet, or it's temporarily unreachable).",
-                font=("Segoe UI", 12), text_color="#6B7280", wraplength=900, justify="left",
-            ).pack(anchor="w")
+                font=("Segoe UI", 12), text_color="#6B7280", justify="left",
+            )
+            offline_label.pack(anchor="w")
+            bind_responsive_wrap(offline_label, container=self.wn_body)
             return
 
         self.wn_version_label.configure(text=result["latest_version"])
@@ -203,7 +205,7 @@ class HomePage(ctk.CTkFrame):
                 font=("Segoe UI", 12), text_color="#6B7280",
             ).pack(anchor="w")
         else:
-            max_lines = 10
+            max_lines = 6
             shown, remaining = lines[:max_lines], lines[max_lines:]
             for line in shown:
                 self._render_note_line(line)
@@ -246,20 +248,24 @@ class HomePage(ctk.CTkFrame):
             ctk.CTkLabel(row, text="•", font=("Segoe UI", 12), text_color=ACCENT, width=16).pack(
                 side="left", anchor="n"
             )
-            ctk.CTkLabel(
-                row, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB",
-                wraplength=850, justify="left",
-            ).pack(side="left", anchor="w")
+            label = ctk.CTkLabel(
+                row, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB", justify="left",
+            )
+            label.pack(side="left", anchor="w")
+            bind_responsive_wrap(label, container=row, padding=40)
         elif t == "quote":
-            ctk.CTkLabel(
+            label = ctk.CTkLabel(
                 self.wn_body, text=line["text"], font=("Segoe UI", 11, "italic"), text_color="#9CA3AF",
-                wraplength=850, justify="left",
-            ).pack(anchor="w", pady=1)
+                justify="left",
+            )
+            label.pack(anchor="w", pady=1)
+            bind_responsive_wrap(label, container=self.wn_body)
         else:
-            ctk.CTkLabel(
-                self.wn_body, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB",
-                wraplength=850, justify="left",
-            ).pack(anchor="w", pady=1)
+            label = ctk.CTkLabel(
+                self.wn_body, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB", justify="left",
+            )
+            label.pack(anchor="w", pady=1)
+            bind_responsive_wrap(label, container=self.wn_body)
 
     def _update_stats(self):
         try:

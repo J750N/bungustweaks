@@ -81,6 +81,7 @@ class Tooltip:
     A delayed hide (instead of an instant one) absorbs the brief gap
     between leaving the row and entering the tooltip below it."""
 
+    SHOW_DELAY_MS = 500  # only pop up after genuinely hovering, not just scrolling past
     HIDE_DELAY_MS = 150
     AUTO_CLOSE_MS = 6000  # backup safety net - closes on its own even if hover tracking misses an edge case
 
@@ -92,6 +93,7 @@ class Tooltip:
         self.warning = warning
         self.tweak = tweak
         self.tip_window = None
+        self._show_job = None
         self._hide_job = None
         self._auto_close_job = None
         self._bind_recursive(widget)
@@ -105,10 +107,23 @@ class Tooltip:
     def _on_enter(self, event=None):
         self._cancel_pending_hide()
         if self.tip_window is None:
-            self._show()
+            self._schedule_show()
 
     def _on_leave(self, event=None):
+        self._cancel_pending_show()
         self._schedule_hide()
+
+    def _schedule_show(self):
+        self._cancel_pending_show()
+        self._show_job = self.widget.after(self.SHOW_DELAY_MS, self._show)
+
+    def _cancel_pending_show(self):
+        if self._show_job is not None:
+            try:
+                self.widget.after_cancel(self._show_job)
+            except Exception:
+                pass
+            self._show_job = None
 
     def _schedule_hide(self):
         self._cancel_pending_hide()
@@ -123,6 +138,7 @@ class Tooltip:
             self._hide_job = None
 
     def _show(self, event=None):
+        self._show_job = None
         if self.tip_window is not None:
             return
 
@@ -196,6 +212,7 @@ class Tooltip:
         self._auto_close_job = self.widget.after(self.AUTO_CLOSE_MS, self._hide)
 
     def _hide(self, event=None):
+        self._cancel_pending_show()
         self._cancel_pending_hide()
         if self._auto_close_job is not None:
             try:
@@ -494,3 +511,19 @@ class DualActionRow(Card):
         self.secondary_button.configure(text=text, state="normal" if enabled else "disabled")
         if color:
             self.secondary_button.configure(fg_color=color)
+
+
+def bind_responsive_wrap(label, container=None, padding=20):
+    """Keeps a label's wraplength in sync with its container's actual width,
+    so text reflows correctly when the window is resized instead of wrapping
+    at a fixed guess (which either wastes space in a wide window or gets cut
+    off in a narrow one)."""
+    target = container or label.master
+
+    def update(event=None):
+        width = target.winfo_width() - padding
+        if width > 60:
+            label.configure(wraplength=width)
+
+    target.bind("<Configure>", update, add="+")
+    label.after(50, update)  # initial pass, before any resize has happened

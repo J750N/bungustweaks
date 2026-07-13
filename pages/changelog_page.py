@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from pages.widgets import Card, SectionHeader, ACCENT
+from pages.widgets import Card, SectionHeader, ACCENT, bind_responsive_wrap
 from core import updates
 from pages.settings import APP_VERSION
 
@@ -133,17 +133,21 @@ class ChangelogPage(ctk.CTkFrame):
             ctk.CTkLabel(row, text="•", font=("Segoe UI", 12), text_color=ACCENT, width=16).pack(
                 side="left", anchor="n"
             )
-            ctk.CTkLabel(
-                row, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB",
-                wraplength=850, justify="left",
-            ).pack(side="left", anchor="w")
+            label = ctk.CTkLabel(
+                row, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB", justify="left",
+            )
+            label.pack(side="left", anchor="w")
+            bind_responsive_wrap(label, container=row, padding=40)
         elif t == "quote":
-            ctk.CTkLabel(
+            label = ctk.CTkLabel(
                 parent, text=line["text"], font=("Segoe UI", 11, "italic"), text_color="#9CA3AF",
-                wraplength=850, justify="left",
-            ).pack(anchor="w", pady=1)
+                justify="left",
+            )
+            label.pack(anchor="w", pady=1)
+            bind_responsive_wrap(label, container=parent)
         else:
-            ctk.CTkLabel(
-                parent, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB",
-                wraplength=850, justify="left",
-            ).pack(anchor="w", pady=1)
+            label = ctk.CTkLabel(
+                parent, text=line["text"], font=("Segoe UI", 12), text_color="#D1D5DB", justify="left",
+            )
+            label.pack(anchor="w", pady=1)
+            bind_responsive_wrap(label, container=parent)
