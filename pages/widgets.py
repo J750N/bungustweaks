@@ -56,10 +56,22 @@ class GradientBar(ctk.CTkCanvas):
             self.create_rectangle(x0, 0, x1, h, fill=color, outline=color)
 
 
+_OPEN_TOOLTIPS = []  # global registry - opening a new tooltip force-closes any others
+
+
 class Tooltip:
     """A small floating popup shown on hover, positioned near the cursor.
-    Includes a close (X) button as a fallback in case the mouse-leave event
-    doesn't fire reliably (a known tkinter quirk with nested widgets)."""
+
+    Tkinter quirk this works around: <Leave> bound only on a container
+    frame doesn't fire reliably once the mouse moves over a CHILD widget
+    inside it (label/button), because each child is its own window under
+    the hood. We fix that by binding Enter/Leave on every descendant widget
+    too, and by "bridging" into the tooltip itself (entering the tooltip
+    cancels the pending hide, so you can actually reach the X button).
+    A delayed hide (instead of an instant one) absorbs the brief gap
+    between leaving the row and entering the tooltip below it."""
+
+    HIDE_DELAY_MS = 150
 
     def __init__(self, widget, title, description, risk="safe", warning=None, tweak=None):
         self.widget = widget
@@ -69,12 +81,46 @@ class Tooltip:
         self.warning = warning
         self.tweak = tweak
         self.tip_window = None
-        widget.bind("<Enter>", self._show, add="+")
-        widget.bind("<Leave>", self._hide, add="+")
+        self._hide_job = None
+        self._bind_recursive(widget)
+
+    def _bind_recursive(self, widget):
+        widget.bind("<Enter>", self._on_enter, add="+")
+        widget.bind("<Leave>", self._on_leave, add="+")
+        for child in widget.winfo_children():
+            self._bind_recursive(child)
+
+    def _on_enter(self, event=None):
+        self._cancel_pending_hide()
+        if self.tip_window is None:
+            self._show()
+
+    def _on_leave(self, event=None):
+        self._schedule_hide()
+
+    def _schedule_hide(self):
+        self._cancel_pending_hide()
+        self._hide_job = self.widget.after(self.HIDE_DELAY_MS, self._hide)
+
+    def _cancel_pending_hide(self):
+        if self._hide_job is not None:
+            try:
+                self.widget.after_cancel(self._hide_job)
+            except Exception:
+                pass
+            self._hide_job = None
 
     def _show(self, event=None):
         if self.tip_window is not None:
             return
+
+        # Force-close any other open tooltip first - guarantees only one
+        # ever exists, so a stuck instance from a weird event order can't
+        # linger forever.
+        for other in list(_OPEN_TOOLTIPS):
+            if other is not self:
+                other._hide()
+
         x = self.widget.winfo_rootx() + 20
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
 
@@ -82,6 +128,7 @@ class Tooltip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tw.attributes("-topmost", True)
+        _OPEN_TOOLTIPS.append(self)
 
         frame = ctk.CTkFrame(tw, fg_color="#1C1C1F", corner_radius=10, border_width=1,
                               border_color="#3A3A40")
@@ -110,7 +157,7 @@ class Tooltip:
             from core.value_extract import get_default_and_recommended
             default_val, recommended_val = get_default_and_recommended(self.tweak)
             ctk.CTkLabel(
-                frame, text=f"PC default: {default_val}   →   Recommended: {recommended_val}",
+                frame, text=f"Switch OFF = PC default ({default_val})   →   Switch ON = Recommended ({recommended_val})",
                 font=("Segoe UI", 11, "bold"), text_color=ACCENT,
                 wraplength=280, justify="left",
             ).pack(anchor="w", padx=14, pady=(0, 6))
@@ -127,10 +174,21 @@ class Tooltip:
                 wraplength=280, justify="left",
             ).pack(anchor="w", padx=14, pady=(0, 12))
 
+        # Hovering the tooltip itself keeps it open (bridges the gap so you
+        # can move the mouse down into it and click the X) - bound last, now
+        # that every child widget inside the tooltip actually exists.
+        self._bind_recursive(tw)
+
     def _hide(self, event=None):
+        self._cancel_pending_hide()
         if self.tip_window is not None:
-            self.tip_window.destroy()
+            try:
+                self.tip_window.destroy()
+            except Exception:
+                pass
             self.tip_window = None
+        if self in _OPEN_TOOLTIPS:
+            _OPEN_TOOLTIPS.remove(self)
 
 
 class Card(ctk.CTkFrame):
@@ -178,8 +236,8 @@ class TweakRow(Card):
             from core.value_extract import get_default_and_recommended
             default_val, recommended_val = get_default_and_recommended(tweak)
             ctk.CTkLabel(
-                inner, text=f"PC default: {default_val}   →   Recommended: {recommended_val}",
-                font=("Segoe UI", 10, "bold"), text_color=ACCENT,
+                inner, text=f"Switch OFF = PC default ({default_val})   →   Switch ON = Recommended ({recommended_val})",
+                font=("Segoe UI", 10, "bold"), text_color=ACCENT, wraplength=520, justify="left",
             ).grid(row=next_row, column=0, sticky="w", pady=(4, 0))
             next_row += 1
 
