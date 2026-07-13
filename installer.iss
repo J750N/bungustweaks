@@ -24,7 +24,7 @@
 ;   4. Your installer appears in the Output\ folder as BungusTweaks-Setup.exe
 
 #define MyAppName "BungusTweaks"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "BungusTweaks"
 #define MyAppExeName "BungusTweaks.exe"
 

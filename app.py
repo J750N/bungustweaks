@@ -106,6 +106,15 @@ class App(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close_request)
         self.after(400, self._maybe_prompt_elevate_on_launch)
+        self.bind("<FocusOut>", self._on_focus_out)
+
+    def _on_focus_out(self, event=None):
+        # Only care about the whole app losing focus (e.g. Alt-Tab to another
+        # program), not focus moving between widgets inside our own window.
+        if event is not None and event.widget is not self:
+            return
+        from pages.widgets import close_all_tooltips
+        close_all_tooltips()
 
     # ---------- state tracking ----------
 
@@ -180,6 +189,7 @@ class App(ctk.CTk):
         self._nav_button(self.sidebar_scroll, "Gaming", "◈")
 
         self._section_label(self.sidebar_scroll, "App")
+        self._nav_button(self.sidebar_scroll, "Changelog", "☰")
         self._nav_button(self.sidebar_scroll, "Settings", "▩")
 
     def _elevate_clicked(self):
@@ -256,12 +266,13 @@ class App(ctk.CTk):
         from pages.tweak_category_page import TweakCategoryPage
         from pages.install_apps import InstallAppsPage
         from pages.history_page import HistoryPage
+        from pages.changelog_page import ChangelogPage
 
         static_pages = [
             ("Home", HomePage), ("Debloat", DebloatPage), ("Install Apps", InstallAppsPage),
             ("History", HistoryPage), ("Backup", BackupPage),
             ("Fixes", FixesPage), ("System Info", SystemInfoPage),
-            ("Settings", SettingsPage), ("Gaming", GamingPage),
+            ("Settings", SettingsPage), ("Gaming", GamingPage), ("Changelog", ChangelogPage),
         ]
         for Name, PageClass in static_pages:
             page = PageClass(self.content, self)
@@ -294,6 +305,9 @@ class App(ctk.CTk):
         self.pages["Services"] = services_page
 
     def show_page(self, name):
+        from pages.widgets import close_all_tooltips
+        close_all_tooltips()
+
         self.current_page_name = name
         for n, btn in self.nav_buttons.items():
             btn.configure(fg_color=ACCENT if n == name else "transparent")
@@ -311,6 +325,7 @@ class App(ctk.CTk):
             "pages.widgets", "pages.home", "pages.gaming", "pages.settings",
             "pages.tweak_category_page", "pages.debloat", "pages.fixes",
             "pages.backup_page", "pages.system_info", "pages.install_apps", "pages.history_page",
+            "pages.changelog_page",
         ]
         for modname in modules_to_reload:
             mod = sys.modules.get(modname)

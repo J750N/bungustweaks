@@ -59,6 +59,16 @@ class GradientBar(ctk.CTkCanvas):
 _OPEN_TOOLTIPS = []  # global registry - opening a new tooltip force-closes any others
 
 
+def close_all_tooltips():
+    """Force-closes every currently open tooltip. Critical to call on page
+    navigation: a tooltip is a real always-on-top OS window, independent of
+    the CTk frame stacking - switching pages (or even switching to a totally
+    different app) does NOT hide it on its own, since raising/lowering CTk
+    frames has nothing to do with a separate Toplevel's visibility."""
+    for tip in list(_OPEN_TOOLTIPS):
+        tip._hide()
+
+
 class Tooltip:
     """A small floating popup shown on hover, positioned near the cursor.
 
@@ -72,6 +82,7 @@ class Tooltip:
     between leaving the row and entering the tooltip below it."""
 
     HIDE_DELAY_MS = 150
+    AUTO_CLOSE_MS = 6000  # backup safety net - closes on its own even if hover tracking misses an edge case
 
     def __init__(self, widget, title, description, risk="safe", warning=None, tweak=None):
         self.widget = widget
@@ -82,6 +93,7 @@ class Tooltip:
         self.tweak = tweak
         self.tip_window = None
         self._hide_job = None
+        self._auto_close_job = None
         self._bind_recursive(widget)
 
     def _bind_recursive(self, widget):
@@ -179,8 +191,18 @@ class Tooltip:
         # that every child widget inside the tooltip actually exists.
         self._bind_recursive(tw)
 
+        # Backup safety net: auto-close after a few seconds no matter what,
+        # in case hover tracking somehow misses an edge case.
+        self._auto_close_job = self.widget.after(self.AUTO_CLOSE_MS, self._hide)
+
     def _hide(self, event=None):
         self._cancel_pending_hide()
+        if self._auto_close_job is not None:
+            try:
+                self.widget.after_cancel(self._auto_close_job)
+            except Exception:
+                pass
+            self._auto_close_job = None
         if self.tip_window is not None:
             try:
                 self.tip_window.destroy()

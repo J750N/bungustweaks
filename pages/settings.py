@@ -3,7 +3,7 @@ from tkinter import filedialog
 from pages.widgets import Card, SectionHeader, LogConsole, ACCENT
 from core import theme, startup, state, runner, nvidia_inspector, updates
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 
 class SettingsPage(ctk.CTkFrame):

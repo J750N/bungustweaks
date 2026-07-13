@@ -9,6 +9,7 @@ import json
 import urllib.request
 
 GITHUB_API_URL = "https://api.github.com/repos/J750N/bungustweaks/releases/latest"
+GITHUB_ALL_RELEASES_API_URL = "https://api.github.com/repos/J750N/bungustweaks/releases"
 GITHUB_RELEASES_URL = "https://github.com/J750N/bungustweaks/releases"
 
 
@@ -77,3 +78,40 @@ def parse_release_notes(markdown_text: str):
         else:
             lines_out.append({"type": "text", "text": clean_inline(line)})
     return lines_out
+
+
+def get_all_releases(timeout: int = 8):
+    """Returns a list of every published release (newest first), or None if
+    the check failed. Each item: {version, name, notes, url, published_at}."""
+    try:
+        req = urllib.request.Request(
+            GITHUB_ALL_RELEASES_API_URL,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "BungusTweaks"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        releases = []
+        for item in data:
+            if item.get("draft"):
+                continue
+            releases.append({
+                "version": item.get("tag_name", "").strip(),
+                "name": item.get("name") or item.get("tag_name", ""),
+                "notes": (item.get("body") or "").strip(),
+                "url": item.get("html_url", GITHUB_RELEASES_URL),
+                "published_at": item.get("published_at", ""),
+                "prerelease": item.get("prerelease", False),
+            })
+        return releases
+    except Exception:
+        return None
+
+
+def format_release_date(iso_string: str) -> str:
+    import datetime
+    try:
+        dt = datetime.datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
+        return dt.strftime("%b %d, %Y")
+    except Exception:
+        return iso_string
