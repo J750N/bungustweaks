@@ -1,9 +1,9 @@
 import customtkinter as ctk
 from tkinter import filedialog
 from pages.widgets import Card, SectionHeader, LogConsole, ACCENT
-from core import theme, startup, state, runner, nvidia_inspector
+from core import theme, startup, state, runner, nvidia_inspector, updates
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 
 
 class SettingsPage(ctk.CTkFrame):
@@ -141,13 +141,69 @@ class SettingsPage(ctk.CTkFrame):
         # ---------- About ----------
         about = Card(outer)
         about.pack(fill="x")
-        ctk.CTkLabel(about, text="About", font=("Segoe UI", 14, "bold")).pack(
-            anchor="w", padx=18, pady=(16, 4)
+        about_header = ctk.CTkFrame(about, fg_color="transparent")
+        about_header.pack(fill="x", padx=18, pady=(16, 4))
+        ctk.CTkLabel(about_header, text="About", font=("Segoe UI", 14, "bold")).pack(side="left")
+        self.update_button = ctk.CTkButton(
+            about_header, text="Check for Updates", fg_color="#374151", width=140,
+            command=self._check_for_updates,
         )
+        self.update_button.pack(side="right")
         ctk.CTkLabel(
             about, text=f"BungusTweaks v{APP_VERSION}\nFree & open source Windows tuning tool.",
             font=("Segoe UI", 12), text_color="#9CA3AF", justify="left",
-        ).pack(anchor="w", padx=18, pady=(0, 16))
+        ).pack(anchor="w", padx=18, pady=(0, 8))
+
+        self.update_result_frame = ctk.CTkFrame(about, fg_color="transparent")
+        self.update_result_frame.pack(fill="x", padx=18, pady=(0, 16))
+
+    def _check_for_updates(self):
+        self.update_button.configure(text="Checking…", state="disabled")
+        for w in self.update_result_frame.winfo_children():
+            w.destroy()
+
+        def worker():
+            result = updates.check_for_update(APP_VERSION)
+            self.after(0, lambda: self._show_update_result(result))
+
+        import threading
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_update_result(self, result):
+        self.update_button.configure(text="Check for Updates", state="normal")
+
+        if result is None:
+            ctk.CTkLabel(
+                self.update_result_frame,
+                text="Couldn't check for updates — no internet connection, or GitHub is unreachable.",
+                font=("Segoe UI", 12), text_color="#9CA3AF", wraplength=500, justify="left",
+            ).pack(anchor="w")
+            return
+
+        if not result["available"]:
+            ctk.CTkLabel(
+                self.update_result_frame, text=f"✔ You're up to date (v{APP_VERSION}).",
+                font=("Segoe UI", 12), text_color="#22C55E",
+            ).pack(anchor="w")
+            return
+
+        ctk.CTkLabel(
+            self.update_result_frame,
+            text=f"🔔 {result['latest_version']} is available (you have v{APP_VERSION})",
+            font=("Segoe UI", 13, "bold"), text_color=ACCENT,
+        ).pack(anchor="w", pady=(0, 6))
+
+        if result["notes"]:
+            preview = result["notes"][:280] + ("…" if len(result["notes"]) > 280 else "")
+            ctk.CTkLabel(
+                self.update_result_frame, text=preview, font=("Segoe UI", 11),
+                text_color="#9CA3AF", wraplength=500, justify="left",
+            ).pack(anchor="w", pady=(0, 8))
+
+        ctk.CTkButton(
+            self.update_result_frame, text="View & Download", fg_color=ACCENT,
+            command=lambda: __import__("webbrowser").open(result["url"]),
+        ).pack(anchor="w")
 
     def _build_swatch(self, master, name, c1, c2, selected):
         frame = ctk.CTkFrame(master, fg_color="transparent")
